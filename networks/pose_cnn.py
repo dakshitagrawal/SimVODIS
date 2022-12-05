@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import torch
 import torch.nn as nn
+import timm
 
 
 class PoseCNN(nn.Module):
@@ -43,6 +44,70 @@ class PoseCNN(nn.Module):
         out = out.mean(3).mean(2)
 
         out = 0.01 * out.view(-1, self.num_input_frames - 1, 1, 6)
+
+        axisangle = out[..., :3]
+        translation = out[..., 3:]
+
+        return axisangle, translation
+
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
+class PoseResNet(nn.Module):
+    def __init__(self, num_input_frames):
+        super(PoseResNet, self).__init__()
+
+        self.num_input_frames = num_input_frames
+
+        self.resnet = timm.create_model("resnet18", pretrained=True)
+        self.resnet.fc = Identity()
+
+        self.pose_conv = nn.Linear(
+            512 * num_input_frames, 6 * (num_input_frames - 1), 1
+        )
+
+    def forward(self, out):
+
+        B, N, C, H, W = out.shape
+        out = self.resnet(out.reshape(-1, C, H, W))
+        out = out.reshape(B, -1)
+
+        out = self.pose_conv(out)
+        out = out.view(-1, self.num_input_frames - 1, 1, 6)
+
+        axisangle = out[..., :3]
+        translation = out[..., 3:]
+
+        return axisangle, translation
+
+
+class PoseViT(nn.Module):
+    def __init__(self, num_input_frames):
+        super(PoseViT, self).__init__()
+
+        self.num_input_frames = num_input_frames
+
+        self.resnet = timm.create_model("mobilenetv2_100", pretrained=True)
+        self.resnet.classifier = Identity()
+
+        self.pose_conv = nn.Linear(
+            1280 * num_input_frames, 6 * (num_input_frames - 1), 1
+        )
+
+    def forward(self, out):
+
+        B, N, C, H, W = out.shape
+        out = self.resnet(out.reshape(-1, C, H, W))
+        out = out.reshape(B, -1)
+
+        out = self.pose_conv(out)
+        out = out.view(-1, self.num_input_frames - 1, 1, 6)
 
         axisangle = out[..., :3]
         translation = out[..., 3:]

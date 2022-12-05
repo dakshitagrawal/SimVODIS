@@ -55,9 +55,9 @@ def evaluate(opt):
         opt.load_weights_folder
     )
 
-    # assert (
-    # opt.eval_split == "odom_9" or opt.eval_split == "odom_10"
-    # ), "eval_split should be either odom_9 or odom_10"
+    assert (
+        opt.eval_split == "odom_9" or opt.eval_split == "odom_10"
+    ), "eval_split should be either odom_9 or odom_10"
 
     sequence_id = int(opt.eval_split.split("_")[1])
     opt.batch_size = 1
@@ -179,14 +179,23 @@ def evaluate(opt):
         )
 
     ates = []
-    # num_frames = gt_xyzs.shape[0]
-    num_frames = pred_poses.shape[0]
-    # track_length = 3
-    track_length = 2
+    num_frames = gt_xyzs.shape[0]
+    track_length = 3
 
+    pred_x = []
+    pred_y = []
+    gt_x = []
+    gt_y = []
+
+    breakpoint()
     for i in range(0, num_frames - 1):
         local_xyzs = np.array(dump_xyz(pred_poses[i : i + track_length - 1]))
         gt_local_xyzs = np.array(dump_xyz(gt_local_poses[i : i + track_length - 1]))
+
+        pred_x.append(local_xyzs[0][0])
+        pred_y.append(local_xyzs[0][1])
+        gt_x.append(gt_local_xyzs[0][0])
+        gt_y.append(gt_local_xyzs[0][1])
 
         ates.append(compute_ate(gt_local_xyzs, local_xyzs))
     """
@@ -196,18 +205,19 @@ def evaluate(opt):
 
         ates.append(compute_ate(gt_local_xyzs, local_xyzs))
     """
-    breakpoint()
+
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure()
+    plt.plot(gt_x, gt_y, color="r", label="Ground Truth")
+    plt.plot(pred_x, pred_y, color="b", label="SimVODIS")
+    # plt.gca().set_aspect("equal", adjustable="datalim")
+    plt.savefig("comparision_sim_gt.png")
 
     print(
         "\n   Trajectory error: {:0.3f}, std: {:0.3f}\n".format(
             np.mean(ates), np.std(ates)
         )
-    )
-
-    trajectory_pred = np.array(dump_xyz(pred_poses))
-    trajectory_gt = np.array(dump_xyz(gt_local_poses))
-    print(
-        f"Trajectory ATE: {compute_ate(trajectory_gt[:len(trajectory_pred)], trajectory_pred)}"
     )
 
     save_path = os.path.join(opt.load_weights_folder, "poses.npy")

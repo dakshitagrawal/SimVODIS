@@ -17,9 +17,9 @@ def conv(in_channels, out_channels, kernel_size=3, stride=1, padding=0):
             out_channels,
             kernel_size=kernel_size,
             stride=stride,
-            padding=padding
+            padding=padding,
         ),
-        nn.ReLU()
+        nn.ReLU(),
     )
 
 
@@ -34,6 +34,7 @@ class PoseDecoder(nn.Module):
         self.num_frames_to_predict_for = num_frames_to_predict_for
 
         self.vo_conv1 = conv(256 * 3, 256, kernel_size=7)
+        # self.vo_conv1 = conv(256 * 2, 256, kernel_size=7)
         self.vo_conv2 = conv(256, 128, kernel_size=5)
         self.vo_conv3 = conv(128, 64, kernel_size=5)
         self.vo_conv4 = nn.Conv2d(64, 6 * num_frames_to_predict_for, 3)
@@ -50,13 +51,7 @@ class PoseDecoder(nn.Module):
         cat_features = torch.cat(first_features, 1)
 
         out = cat_features
-        out = self.vo_conv4(
-            self.vo_conv3(
-                self.vo_conv2(
-                    self.vo_conv1(out)
-                )
-            )
-        )
+        out = self.vo_conv4(self.vo_conv3(self.vo_conv2(self.vo_conv1(out))))
         out = out.mean(3).mean(2)
         out = 0.01 * out.view(-1, self.num_frames_to_predict_for, 1, 6)
 
